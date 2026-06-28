@@ -1,0 +1,74 @@
+```gitignore
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# ------------------------------
+# Environment variables
+# ------------------------------
+.env
+.env.*
+
+# Keep the example file
+!.env.example
+
+# ------------------------------
+# IDEs & Editors
+# ------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ------------------------------
+# OS files
+# ------------------------------
+.DS_Store
+Thumbs.db
+
+# ------------------------------
+# Logs
+# ------------------------------
+*.log
+
+# ------------------------------
+# Python caches
+# ------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ------------------------------
+# Build / Distribution
+# ------------------------------
+build/
+dist/
+*.egg-info/
+
+# ------------------------------
+# Uploaded files
+# ------------------------------
+uploads/
+*.csv
+
+# Keep the sample CSV if required for the assignment
+!transactions.csv
+
+# ------------------------------
+# Docker
+# ------------------------------
+docker-data/
+```

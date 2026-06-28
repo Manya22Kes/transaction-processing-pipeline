@@ -1,6 +1,6 @@
 # AI-Powered Transaction Processing Pipeline
 
-A production-grade backend service that accepts dirty CSV financial transaction data, processes it asynchronously, uses Google Gemini to classify transactions and generate narrative summaries, and exposes a polling REST API to retrieve results.
+An asynchronous backend service for processing financial transaction CSV files. The application cleans and normalizes uploaded data, detects anomalies, enriches missing transaction categories using Google Gemini, and generates AI-powered spending summaries. Processing is handled in the background using Celery so uploads return immediately while results can be retrieved through polling endpoints.
 
 ---
 
@@ -60,7 +60,7 @@ flowchart TD
 
 ---
 
-## Folder Structure
+## Project Structure
 
 ```
 transaction-processing-pipeline/
@@ -134,10 +134,8 @@ docker compose up --build
 ```
 
 That single command:
-- Builds the Docker image
-- Starts PostgreSQL, Redis, the FastAPI API, and the Celery worker
-- Runs Alembic migrations automatically before the API starts
-- Mounts a shared volume for uploaded CSV files
+
+- This command builds the application image, starts PostgreSQL, Redis, the API service and Celery worker, applies database migrations, and mounts the shared upload volume.
 
 ### 3. Verify the stack is running
 
@@ -152,17 +150,47 @@ Interactive API docs: http://localhost:8000/docs
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | *(required)* | Google Gemini API key |
-| `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini model name |
-| `DATABASE_URL` | `postgresql://...@postgres:5432/transactions_db` | Full PostgreSQL DSN |
-| `CELERY_BROKER_URL` | `redis://redis:6379/0` | Celery broker |
-| `CELERY_RESULT_BACKEND` | `redis://redis:6379/1` | Celery result store |
-| `UPLOAD_DIR` | `/app/uploads` | Where CSV files are saved |
-| `LLM_MAX_RETRIES` | `3` | Gemini retry attempts |
-| `LLM_RETRY_BASE_DELAY` | `2.0` | Backoff base delay (seconds) |
-| `APP_DEBUG` | `false` | Enable debug logging |
+| Variable                | Default                                          | Description                  |
+| ----------------------- | ------------------------------------------------ | ---------------------------- |
+| `GEMINI_API_KEY`        | _(required)_                                     | Google Gemini API key        |
+| `GEMINI_MODEL`          | `gemini-1.5-flash`                               | Gemini model name            |
+| `DATABASE_URL`          | `postgresql://...@postgres:5432/transactions_db` | Full PostgreSQL DSN          |
+| `CELERY_BROKER_URL`     | `redis://redis:6379/0`                           | Celery broker                |
+| `CELERY_RESULT_BACKEND` | `redis://redis:6379/1`                           | Celery result store          |
+| `UPLOAD_DIR`            | `/app/uploads`                                   | Where CSV files are saved    |
+| `LLM_MAX_RETRIES`       | `3`                                              | Gemini retry attempts        |
+| `LLM_RETRY_BASE_DELAY`  | `2.0`                                            | Backoff base delay (seconds) |
+| `APP_DEBUG`             | `false`                                          | Enable debug logging         |
+
+---
+
+## Features
+
+- Asynchronous CSV processing with Celery
+- CSV validation and normalization
+- Duplicate removal
+- Statistical anomaly detection
+- AI-powered transaction categorization using Google Gemini
+- AI-generated spending summaries and risk assessment
+- PostgreSQL persistence
+- REST API with polling support
+- Docker-based local development
+- Automatic retry mechanism for LLM requests
+
+---
+
+## Tech Stack
+
+| Layer            | Technology              |
+| ---------------- | ----------------------- | --- |
+| API              | FastAPI                 |
+| Database         | PostgreSQL + SQLAlchemy |
+| Background Jobs  | Celery                  |
+| Queue            | Redis                   |
+| AI               | Google Gemini           |
+| Data Processing  | Pandas, NumPy           |
+| Migrations       | Alembic                 |     |
+| Containerization | Docker & Docker Compose |
 
 ---
 
@@ -173,12 +201,14 @@ Interactive API docs: http://localhost:8000/docs
 Upload a CSV file for async processing. Returns a `job_id` immediately.
 
 **Request**
+
 ```bash
 curl -X POST http://localhost:8000/jobs/upload \
   -F "file=@transactions.csv"
 ```
 
 **Response (202 Accepted)**
+
 ```json
 {
   "job_id": "3f2a1b4c-...",
@@ -203,6 +233,7 @@ curl "http://localhost:8000/jobs?status=completed"
 ```
 
 **Response (200 OK)**
+
 ```json
 [
   {
@@ -227,6 +258,7 @@ curl http://localhost:8000/jobs/3f2a1b4c-.../status
 ```
 
 **Response while processing (200 OK)**
+
 ```json
 {
   "job_id": "3f2a1b4c-...",
@@ -240,6 +272,7 @@ curl http://localhost:8000/jobs/3f2a1b4c-.../status
 ```
 
 **Response when completed (200 OK)**
+
 ```json
 {
   "job_id": "3f2a1b4c-...",
@@ -249,8 +282,8 @@ curl http://localhost:8000/jobs/3f2a1b4c-.../status
   "completed_at": "2024-12-01T10:01:23Z",
   "error_message": null,
   "summary": {
-    "total_spend_inr": 485230.50,
-    "total_spend_usd": 15420.00,
+    "total_spend_inr": 485230.5,
+    "total_spend_usd": 15420.0,
     "anomaly_count": 7,
     "risk_level": "high",
     "narrative": "The account shows elevated spending across retail and food categories..."
@@ -269,6 +302,7 @@ curl http://localhost:8000/jobs/3f2a1b4c-.../results
 ```
 
 **Response (200 OK)**
+
 ```json
 {
   "job_id": "3f2a1b4c-...",
@@ -306,19 +340,19 @@ curl http://localhost:8000/jobs/3f2a1b4c-.../results
     }
   ],
   "category_breakdown": {
-    "Shopping": 145230.50,
-    "Food": 32100.00,
+    "Shopping": 145230.5,
+    "Food": 32100.0,
     "Travel": 18200.75
   },
   "summary": {
-    "total_spend_inr": 485230.50,
-    "total_spend_usd": 15420.00,
+    "total_spend_inr": 485230.5,
+    "total_spend_usd": 15420.0,
     "top_merchants": [
-      {"merchant": "Amazon", "total": 95000.00},
-      {"merchant": "Flipkart", "total": 74000.00},
-      {"merchant": "HDFC ATM", "total": 52000.00}
+      { "merchant": "Amazon", "total": 95000.0 },
+      { "merchant": "Flipkart", "total": 74000.0 },
+      { "merchant": "HDFC ATM", "total": 52000.0 }
     ],
-    "category_breakdown": {"Shopping": 145230.50, "Food": 32100.00},
+    "category_breakdown": { "Shopping": 145230.5, "Food": 32100.0 },
     "anomaly_count": 7,
     "narrative": "The dataset reveals heavy retail spending concentrated on Amazon and Flipkart...",
     "risk_level": "high"
@@ -328,18 +362,18 @@ curl http://localhost:8000/jobs/3f2a1b4c-.../results
 
 ---
 
-## Processing Pipeline Details
+## Processing Pipeline
 
 ### Data Cleaning (Step 2)
 
-| Issue | Fix |
-|---|---|
-| Mixed date formats (`DD-MM-YYYY`, `YYYY/MM/DD`) | Normalised to ISO 8601 (`YYYY-MM-DD`) |
-| Dollar prefix on amounts (`$11325.79`) | Stripped, cast to float |
-| Inconsistent currency casing (`inr`, `INR`) | Uppercased |
-| Inconsistent status casing (`success`, `SUCCESS`) | Uppercased |
-| Missing category | Filled with `"Uncategorised"` |
-| Exact duplicate rows | Removed |
+| Issue                                             | Fix                                   |
+| ------------------------------------------------- | ------------------------------------- |
+| Mixed date formats (`DD-MM-YYYY`, `YYYY/MM/DD`)   | Normalised to ISO 8601 (`YYYY-MM-DD`) |
+| Dollar prefix on amounts (`$11325.79`)            | Stripped, cast to float               |
+| Inconsistent currency casing (`inr`, `INR`)       | Uppercased                            |
+| Inconsistent status casing (`success`, `SUCCESS`) | Uppercased                            |
+| Missing category                                  | Filled with `"Uncategorised"`         |
+| Exact duplicate rows                              | Removed                               |
 
 ### Anomaly Detection (Step 3)
 
@@ -356,27 +390,23 @@ curl http://localhost:8000/jobs/3f2a1b4c-.../results
 
 ---
 
-## Docker Commands
+## Running the Application
 
-```bash
-# Start everything (first run builds the image)
+```
+# Build and start the application
 docker compose up --build
 
-# Start in detached mode
+# Run in the background
 docker compose up --build -d
 
-# View logs
-docker compose logs -f api
-docker compose logs -f worker
+# View service logs
+docker compose logs -f api docker compose logs -f worker
 
-# Stop everything
+# Stop the application
 docker compose down
 
-# Stop and remove volumes (wipes the database)
+# Remove containers and volumes
 docker compose down -v
-
-# Rebuild after code changes
-docker compose up --build --force-recreate
 ```
 
 ---
@@ -410,3 +440,4 @@ docker compose up --build --force-recreate
 6. **Horizontal scaling** — Increase Celery worker concurrency or add multiple worker replicas; add a connection pooler (PgBouncer) in front of PostgreSQL.
 7. **Object storage** — Replace local file storage with S3/GCS for uploaded CSVs.
 8. **Rate limiting** — Add FastAPI rate limiting middleware on the upload endpoint.
+9. **WebSocket notifications** - To replace polling for real-time job updates.
