@@ -8,24 +8,24 @@ An asynchronous backend service for processing financial transaction CSV files. 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Client / curl                         │
+│                        Client / curl                        │
 └──────────────────────────┬──────────────────────────────────┘
                            │ POST /jobs/upload
                            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI (port 8000)                        │
+│                    FastAPI (port 8000)                       │
 │  • Validates file    • Creates Job record (status=pending)   │
 │  • Saves CSV to disk • Returns job_id immediately            │
 └──────────────┬──────────────────────────────────────────────┘
                │ apply_async(job_id)
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              Redis (Celery Broker + Result Backend)           │
+│              Redis (Celery Broker + Result Backend)         │
 └──────────────┬──────────────────────────────────────────────┘
                │ dequeue
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Celery Worker                              │
+│                    Celery Worker                             │
 │  Step 1  Read CSV from disk                                  │
 │  Step 2  Clean data (dates, amounts, casing, dedup)          │
 │  Step 3  Anomaly detection (2 rules)                         │
@@ -36,8 +36,8 @@ An asynchronous backend service for processing financial transaction CSV files. 
                │ bulk insert
                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   PostgreSQL 16                               │
-│  Tables: jobs · transactions · job_summaries                 │
+│                   PostgreSQL 16                             │
+│  Tables: jobs · transactions · job_summaries                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -103,8 +103,17 @@ transaction-processing-pipeline/
 ├── requirements.txt
 ├── alembic.ini
 ├── .env.example
+|__ docs/
+|    ├── architecture.drawio
+|    ├── architecture.png
 └── README.md
 ```
+
+---
+
+## Architecture Diagram
+
+![Architecture](docs/architecture.png)
 
 ---
 
@@ -182,14 +191,14 @@ Interactive API docs: http://localhost:8000/docs
 ## Tech Stack
 
 | Layer            | Technology              |
-| ---------------- | ----------------------- | --- |
+| ---------------- | ----------------------- |
 | API              | FastAPI                 |
 | Database         | PostgreSQL + SQLAlchemy |
 | Background Jobs  | Celery                  |
 | Queue            | Redis                   |
 | AI               | Google Gemini           |
 | Data Processing  | Pandas, NumPy           |
-| Migrations       | Alembic                 |     |
+| Migrations       | Alembic                 |
 | Containerization | Docker & Docker Compose |
 
 ---
@@ -427,6 +436,26 @@ docker compose down -v
 
 **Workers not picking up tasks after Redis restart**
 → Restart the worker: `docker compose restart worker`.
+
+---
+
+## Screenshots
+
+### Swagger API
+
+![Swagger](docs/swagger-overview.png)
+
+### Upload Endpoint
+
+![Upload](docs/upload-endpoint.png)
+
+### Status Endpint
+
+![Status](docs/status-endpoint.png)
+
+### Job Results
+
+![Results](docs/results-endpoint.png)
 
 ---
 
