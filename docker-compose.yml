@@ -1,0 +1,126 @@
+version: "3.9"
+
+# AI-Powered Transaction Processing Pipeline — Docker Compose
+#
+# Services:
+#   postgres  – PostgreSQL 16 database
+#   redis     – Redis 7 broker + result backend
+#   api       – FastAPI application (runs migrations on startup)
+#   worker    – Celery worker for async job processing
+
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: txn_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-transactions_db}
+      POSTGRES_USER: ${POSTGRES_USER:-txn_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-txn_secret_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-txn_user} -d ${POSTGRES_DB:-transactions_db}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: txn_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # FastAPI
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: txn_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override host-specific values for the container network
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql://${POSTGRES_USER:-txn_user}:${POSTGRES_PASSWORD:-txn_secret_password}@postgres:5432/${POSTGRES_DB:-transactions_db}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - uploads_data:/app/uploads
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Run Alembic migrations, then start uvicorn
+    command: >
+      sh -c "
+        echo '⏳  Running database migrations...' &&
+        alembic upgrade head &&
+        echo '✅  Migrations complete. Starting API server...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: txn_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_HOST: redis
+      DATABASE_URL: postgresql://${POSTGRES_USER:-txn_user}:${POSTGRES_PASSWORD:-txn_secret_password}@postgres:5432/${POSTGRES_DB:-transactions_db}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    command: >
+      celery -A app.workers.celery_app worker
+             --loglevel=info
+             --concurrency=2
+             --queues=default
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads_data:

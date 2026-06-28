@@ -1,0 +1,33 @@
+# ─── Web framework ───────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12       # required for FastAPI file uploads
+
+# ─── Database ────────────────────────────────
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10        # PostgreSQL driver
+
+# ─── Task queue ──────────────────────────────
+celery==5.4.0
+redis==5.2.1                   # Python Redis client
+
+# ─── Data processing ─────────────────────────
+pandas==2.2.3
+numpy==2.1.3
+
+# ─── LLM ─────────────────────────────────────
+google-generativeai==0.8.3
+
+# ─── Validation & serialisation ──────────────
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# ─── Configuration ───────────────────────────
+python-dotenv==1.0.1
+
+# ─── HTTP utilities ──────────────────────────
+httpx==0.28.1                  # async HTTP for health checks
+
+# ─── Logging ─────────────────────────────────
+python-json-logger==3.2.1      # structured JSON logging
